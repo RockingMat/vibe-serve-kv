@@ -229,3 +229,8 @@ CLAUDE.md
 # Per-experiment scratch — not part of the repo
 baseline_eval_*/
 sandbox-*/
+
+# Local notes / paper drafts
+view.pdf
+*.local.pdf
+
