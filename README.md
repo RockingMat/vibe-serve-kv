@@ -1,5 +1,7 @@
 # VibeServe: Can AI Agents Build Bespoke LLM Serving Systems?
 
+[![arXiv](https://img.shields.io/badge/arXiv-2605.06068-b31b1b.svg)](https://arxiv.org/abs/2605.06068)
+
 **An agentic loop that synthesizes bespoke LLM serving systems — one per (model, hardware, workload) target — instead of forcing every deployment through a single general-purpose runtime.**
 
 <p align="center">
@@ -181,4 +183,20 @@ resources/skills/serving-systems/ # Agent Skills library
 uv run pytest                                       # full suite
 uv run pytest tests/loops/plain/test_plain_loop.py  # one file
 uv run pytest -k orchestrator                       # by keyword
+```
+
+## Citation
+
+If you use VibeServe in your research, please cite:
+
+```bibtex
+@misc{kamahori2026vibeserveaiagentsbuild,
+      title={VibeServe: Can AI Agents Build Bespoke LLM Serving Systems?},
+      author={Keisuke Kamahori and Shihang Li and Simon Peter and Baris Kasikci},
+      year={2026},
+      eprint={2605.06068},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2605.06068},
+}
 ```
