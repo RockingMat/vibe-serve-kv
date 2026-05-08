@@ -1,5 +1,7 @@
 # VibeServe: Can AI Agents Build Bespoke LLM Serving Systems?
 
+[![arXiv](https://img.shields.io/badge/arXiv-2605.06068-b31b1b.svg)](https://arxiv.org/abs/2605.06068)
+
 **An agentic loop that synthesizes bespoke LLM serving systems — one per (model, hardware, workload) target — instead of forcing every deployment through a single general-purpose runtime.**
 
 <p align="center">
