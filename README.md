@@ -184,3 +184,17 @@ uv run pytest                                       # full suite
 uv run pytest tests/loops/plain/test_plain_loop.py  # one file
 uv run pytest -k orchestrator                       # by keyword
 ```
+
+## Citation
+
+```bibtex
+@misc{kamahori2026vibeserveaiagentsbuild,
+      title={VibeServe: Can AI Agents Build Bespoke LLM Serving Systems?},
+      author={Keisuke Kamahori and Shihang Li and Simon Peter and Baris Kasikci},
+      year={2026},
+      eprint={2605.06068},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2605.06068},
+}
+```
