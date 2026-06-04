@@ -11,10 +11,16 @@ from vibe_serve.agents import build_agent_runner
 from vibe_serve.agents.cli_runner import CliAgentRunner
 from vibe_serve.agents.deepagents_runner import DeepAgentsRunner
 from vibe_serve.agents.callbacks import AgentLogger
+from vibe_serve.config import Config
 from vibe_serve.schemas import (
     JudgeResponse,
     Verdict,
 )
+
+
+def _agent_config(**agent) -> Config:
+    """Minimal valid Config carrying just an ``[agent]`` section for runner tests."""
+    return Config.model_validate({"model": {"name": "m"}, "agent": agent})
 
 
 def _judge_fallback() -> JudgeResponse:
@@ -931,7 +937,7 @@ class TestBuildAgentRunner:
 
     def test_build_agent_runner_default_is_cli(self):
         runner = build_agent_runner(
-            {},
+            _agent_config(),
             agent_backend=None,
             cli_provider=None,
             backends={
@@ -951,7 +957,7 @@ class TestBuildAgentRunner:
 
     def test_build_agent_runner_cli_provider_from_config(self):
         runner = build_agent_runner(
-            {"agent": {"backend": "cli", "cli_provider": "claude"}},
+            _agent_config(backend="cli", cli_provider="claude"),
             agent_backend=None,
             cli_provider=None,
             backends=None,
@@ -968,7 +974,7 @@ class TestBuildAgentRunner:
     def test_build_agent_runner_cli_defaults_to_codex(self):
         """When backend=cli and no provider specified, defaults to codex."""
         runner = build_agent_runner(
-                {"agent": {"backend": "cli"}},
+                _agent_config(backend="cli"),
                 agent_backend=None,
                 cli_provider=None,
                 backends=None,
@@ -992,7 +998,7 @@ class TestBuildAgentRunner:
             "perf_eval": MagicMock(),
         }
         runner = build_agent_runner(
-            {},
+            _agent_config(),
             agent_backend="cli",
             cli_provider="claude",
             backends=mock_backends,
@@ -1016,7 +1022,7 @@ class TestBuildAgentRunner:
             "perf_eval": MagicMock(),
         }
         runner = build_agent_runner(
-            {},
+            _agent_config(),
             agent_backend="cli",
             cli_provider="codex",
             backends=mock_backends,
@@ -1035,7 +1041,7 @@ class TestBuildAgentRunner:
     def test_build_agent_runner_rejects_unsupported_modal_provider(self):
         with pytest.raises(SystemExit, match="not yet supported with --modal"):
             build_agent_runner(
-                {},
+                _agent_config(),
                 agent_backend="cli",
                 cli_provider="nonexistent",
                 backends={},
@@ -1051,7 +1057,7 @@ class TestBuildAgentRunner:
     def test_build_agent_runner_rejects_unsupported_docker_provider(self):
         with pytest.raises(SystemExit, match="not yet supported with --docker"):
             build_agent_runner(
-                {},
+                _agent_config(),
                 agent_backend="cli",
                 cli_provider="nonexistent",
                 backends={},
@@ -1066,7 +1072,7 @@ class TestBuildAgentRunner:
     def test_build_agent_runner_rejects_unknown_backend(self):
         with pytest.raises(SystemExit, match="unknown agent backend"):
             build_agent_runner(
-                {},
+                _agent_config(),
                 agent_backend="bogus",
                 cli_provider=None,
                 backends=None,
@@ -1157,21 +1163,21 @@ class TestBuildAgentRunnerBackendSelection:
         )
 
     def test_default_backend_is_cli_with_empty_config(self):
-        runner = self._build({})
+        runner = self._build(_agent_config())
         assert isinstance(runner, CliAgentRunner)
         assert runner._provider == "codex"
 
     def test_empty_agent_section_defaults_to_cli(self):
-        runner = self._build({"agent": {}})
+        runner = self._build(_agent_config())
         assert isinstance(runner, CliAgentRunner)
         assert runner._provider == "codex"
 
     def test_agent_backend_flag_overrides_config(self):
         # An explicit --agent-backend flag wins over [agent].backend.
-        runner = self._build({"agent": {"backend": "deepagents"}}, agent_backend="cli")
+        runner = self._build(_agent_config(backend="deepagents"), agent_backend="cli")
         assert isinstance(runner, CliAgentRunner)
 
     def test_config_can_select_cli_provider(self):
-        runner = self._build({"agent": {"backend": "cli", "cli_provider": "claude"}})
+        runner = self._build(_agent_config(backend="cli", cli_provider="claude"))
         assert isinstance(runner, CliAgentRunner)
         assert runner._provider == "claude"
