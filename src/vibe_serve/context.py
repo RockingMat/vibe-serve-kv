@@ -12,7 +12,13 @@ from pathlib import Path
 from vibe_serve import backends
 from vibe_serve.agent_runner import _log_and_print
 from vibe_serve.agents import build_agent_runner
-from vibe_serve.constants import ComputeBackend, DEFAULT_COMPUTE_BACKEND, PROJECT_ROOT
+from vibe_serve.config import Config, as_config
+from vibe_serve.constants import (
+    ComputeBackend,
+    DEFAULT_AGENT_BACKEND,
+    DEFAULT_COMPUTE_BACKEND,
+    PROJECT_ROOT,
+)
 from vibe_serve.llm_client import _build_model
 from vibe_serve.sandbox.run_environment import (
     RunEnvironmentRequest,
@@ -119,7 +125,7 @@ class _RunContext:
 
     def __init__(
         self,
-        config: dict,
+        config: Config,
         exp_name: str,
         reference_path: str,
         existing: bool = False,
@@ -136,6 +142,7 @@ class _RunContext:
         cli_provider: str | None = None,
         backend: ComputeBackend = DEFAULT_COMPUTE_BACKEND,
     ):
+        config = as_config(config)
         self.backend: ComputeBackend = backend
         run_environment = run_environment or make_run_environment_spec()
         self.run_environment = build_run_environment(run_environment)
@@ -178,17 +185,12 @@ class _RunContext:
         # Resolve agent backend + cli provider early so Docker setup can
         # add provider-specific bind mounts and init commands.
         self._resolved_backend = (
-            agent_backend
-            or (config.get("agent") or {}).get("backend")
-            or "cli"
+            agent_backend or config.agent.backend or DEFAULT_AGENT_BACKEND
         )
-        self._cli_provider = (
-            cli_provider or (config.get("agent") or {}).get("cli_provider")
-            or "codex"
-        )
+        self._cli_provider = cli_provider or config.agent.cli_provider or "codex"
 
         self.model = _build_model(config)
-        self.model_name = config.get("model", {}).get("name", "unknown")
+        self.model_name = config.model.name
 
         self.acc_checker_path = self._coerce_dir_path(acc_checker, "--acc-checker")
         self.bench_path = self._coerce_dir_path(bench, "--bench")

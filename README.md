@@ -88,7 +88,7 @@ examples/<name>/
 └── README.md             # human-readable description
 ```
 
-`OBJECTIVE.md` is read at the start of every run and must live next to `--ref` (sibling, not inside). See `examples/Llama-3-8B/`, `examples/moonshine-streaming/`, `examples/qwen3-32b-code-edit/`, `examples/olmo-hybrid-prefix-caching/`, `examples/Llama-3.1-8B-Instruct-MLX-8bit/`, and `examples/show-o2-1.5B-HQ/` for the six paper scenarios.
+`OBJECTIVE.md` is read at the start of every run and must live next to `--ref` (sibling, not inside). See `examples/Llama-3-8B/`, `examples/moonshine-streaming/`, `examples/qwen3-32b-code-edit/`, `examples/olmo-hybrid-prefix-caching/`, `examples/Llama-3.1-8B-Instruct-MLX-8bit/`, `examples/show-o2-1.5B-HQ-h100/`, and `examples/show-o2-1.5B-HQ-macbook/` for the paper scenarios.
 
 For multi-objective evolutionary runs, drop an `objectives.toml` next to `OBJECTIVE.md` (or pass `--objective name:max|min` flags) — see `vibe-serve --outer-loop evolve --help`.
 
@@ -105,9 +105,19 @@ name = "cuda"                 # or "metal" for Apple Silicon (local exec only)
 [agent]
 backend = "cli"               # "cli" (codex/claude/gemini/opencode) or "deepagents"
 cli_provider = "codex"        # which coding-agent harness to drive
+# cli_model = "gpt-5-codex"   # override the model the CLI tool uses
+# cli_timeout = 1800          # per-invocation timeout (seconds)
+
+# Optional: benchmark load levels handed to the perf evaluator.
+# [[perf_eval.load_levels]]
+# rate = 1
+# duration = 20
+# max_tokens = 128
 ```
 
 Provider credentials live in `.env` — see `.env.example`. The CLI flags `--agent-backend` / `--cli-provider` / `--backend` override these.
+
+The config is validated against a typed schema on load (`vibe_serve/config.py`): unknown sections or keys, unknown providers/backends, and missing required fields are rejected with an error rather than silently ignored.
 
 ## Skills library
 
