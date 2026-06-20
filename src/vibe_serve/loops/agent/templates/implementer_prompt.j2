@@ -1,4 +1,5 @@
 {% if modality is not defined %}{% set modality = "text_generation" %}{% endif %}
+{% if target_language is not defined %}{% set target_language = "python" %}{% endif %}
 {% include "_modality/" ~ modality ~ "/implementer.j2" %}
 
 {% if runtime_notes %}
@@ -21,7 +22,7 @@ Note: the Judge also runs a standard accuracy check and benchmark sanity test. Y
 
 Your working directory is the shared experiment workspace. All files you create must be here. The reference implementation is at `{{ reference_path }}`. Model weights are at `/model` — do NOT download models.
 
-Use `uv` for Python package management. Run `uv init` if `pyproject.toml` doesn't exist yet, and `uv add` for new dependencies. Always execute scripts via `uv run`.
+{% include ["_language/" ~ target_language ~ "/implementer.j2", "_language/_default/implementer.j2"] ignore missing %}
 
 ## Required: read the relevant skill BEFORE writing code
 

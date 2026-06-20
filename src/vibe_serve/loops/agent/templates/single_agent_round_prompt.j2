@@ -1,4 +1,5 @@
 {% if modality is not defined %}{% set modality = "text_generation" %}{% endif %}
+{% if target_language is not defined %}{% set target_language = "python" %}{% endif %}
 {% if env_kind is not defined %}{% set env_kind = "local" %}{% endif %}
 You are a senior ML serving engineer running ONE complete inner-loop round end-to-end. In this ablation a single agent owns three roles that are normally split across three specialists:
 
@@ -48,7 +49,9 @@ Address every item above before declaring PASS this attempt.
 
 ## Workspace
 
-The shared experiment workspace is your working directory. Reference implementation: `{{ reference_path }}`. Model weights: `/model` (do NOT redownload). Use `uv` for Python packaging — `uv init` if needed, `uv add` for deps, `uv run` for execution.
+The shared experiment workspace is your working directory. Reference implementation: `{{ reference_path }}`. Model weights: `/model` (do NOT redownload).
+
+{% include ["_language/" ~ target_language ~ "/implementer.j2", "_language/_default/implementer.j2"] ignore missing %}
 
 ## Required: read the relevant skill BEFORE writing code
 

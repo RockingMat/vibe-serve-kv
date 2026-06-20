@@ -1,10 +1,51 @@
 # Design: Per-target prompt abstractions (neutral base + additive hints)
 
-**Status:** Draft / for review
+**Status:** Step 1 (language seam) implemented; domain neutralization deferred (see *Implementation status*)
 **Branch:** `prompt-abstractions-per-target`
 **Related:** `language-agnostic-policy` (depends on this — see *Relationship to the other branch*)
 **Scope of this PR series:** prompt/template refactor only. No new runtime behavior, no language
 selection mechanism (that is the sibling branch). kv-store specifics are deferred.
+
+---
+
+## Implementation status
+
+Implementation surfaced a structural fact that reshapes the original "demote everything into
+`_modality/text_generation/`" plan, so the work is split into two steps:
+
+**Step 1 — language seam (DONE in this branch).** The additive `_language/<lang>/` layer and the
+`target_language` plumbing are in. Concretely:
+- New `loops/agent/templates/_language/{python,_default}/implementer.j2` + `_language/README.md`.
+- `implementer_prompt.j2` and `single_agent_round_prompt.j2` default `target_language` to `python`
+  and pull the build/run tooling line from `{% include ["_language/"~target_language~"/implementer.j2",
+  "_language/_default/implementer.j2"] ignore missing %}` (first existing wins; unknown languages
+  degrade to the neutral default instead of erroring).
+- `loops/agent/loop.py` passes `target_language="python"` at the implementer + single-agent call
+  sites (the sibling branch will source this from the target manifest).
+- Regression test `tests/loops/agent/test_language_layer.py`; the implementer prompt renders
+  **byte-identical** for the Python path across modalities, single-agent shows only the intended
+  tooling-line reflow.
+
+**Step 2 — domain neutralization (DEFERRED, follow-up).** Moving the LLM-serving *domain* prose
+(serving-systems skill-reading, reward-hack detection, the `/model` weights clause, and the judge
+always-on gates) out of the base is **not** a simple demote into `_modality/text_generation/`,
+because:
+1. **It is shared across all six LLM modalities** — the skill-reading and reward-hack sections live
+   in the *base*, not in `text_generation`. Demoting them into `_modality/text_generation/` would
+   strip them from `image_generation`, `video_generation`, `text_to_speech`, `speech_to_text`, and
+   `realtime_audio`. The correct home is a shared serving-domain layer that every LLM modality opts
+   into and a non-LLM modality (kv_store) simply omits.
+2. **The evolve/openevolve loops share the `_modality/*` files** (via `evolve/loop.py:64`'s dual
+   FileSystemLoader search path) **and independently inline their own copies** of the skill-reading
+   and reward-hack prose in `evolve/templates/{mutator,judge}_prompt.j2`, with loop-specific flavor
+   (mutation vs implementation). Demoting base prose into the shared modality files would render it
+   twice in evolve. Doing this right means a shared domain layer **plus** deduplicating evolve —
+   which changes evolve's rendered output and deserves its own reviewed PR.
+3. The judge always-on gates entangle three concerns — **language** (`uv run pytest`), **protocol**
+   (`/health`), and **domain** (accuracy-checker schema/sentinel) — that need to be teased apart
+   into the right layers rather than moved wholesale.
+
+Step 1 is what unblocks the `language-agnostic-policy` branch, so it ships first on its own.
 
 ---
 
@@ -160,6 +201,11 @@ commands and real `target_language` values into the seams created here. Land thi
 
 ## Out of scope / later
 
+- **Step 2 — domain neutralization (follow-up PR on this branch):** extract the LLM-serving domain
+  prose (skill-reading, reward-hack, `/model` clause, judge always-on gates) into a shared
+  serving-domain layer that all LLM modalities include and non-LLM modalities omit; dedup the
+  evolve/openevolve inline copies; split the judge gates by concern (language / protocol / domain).
+  See *Implementation status* for why this is separate.
 - Target manifest, language selection, profiler pluggability → `language-agnostic-policy`.
 - Plain-loop modality/language retrofit.
 - kv-store modality cleanup (revisit once the neutral base lands).
