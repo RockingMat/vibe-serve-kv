@@ -23,6 +23,7 @@ import tomllib
 from pathlib import Path
 
 from vibe_serve.config import Config, _load_config
+from vibe_serve.loops.agent.domain import DEFAULT_DOMAIN, builtin_domains
 from vibe_serve.constants import (
     ComputeBackend,
     KNOWN_COMPUTE_BACKENDS,
@@ -403,6 +404,17 @@ def _build_agent_parser() -> argparse.ArgumentParser:
         "--modality", default="text_generation", choices=_MODALITIES
     )
     parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN,
+        metavar="NAME_OR_PATH",
+        help=(
+            "Domain pack supplying the implementer/judge context for your "
+            f"problem space. A built-in name ({', '.join(builtin_domains())}) "
+            "or a path to your own domain directory. Default: "
+            f"{DEFAULT_DOMAIN}. See loops/agent/templates/_domain/README.md."
+        ),
+    )
+    parser.add_argument(
         "--inner-loop",
         choices=["multi-agent", "single-agent"],
         default="multi-agent",
@@ -465,6 +477,7 @@ def _run_agent(args: argparse.Namespace) -> None:
         cli_provider=args.cli_provider,
         backend=backend,
         modality=args.modality,
+        domain=args.domain,
         inner_loop=args.inner_loop,
     )
 
