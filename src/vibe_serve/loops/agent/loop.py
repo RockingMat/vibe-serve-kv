@@ -311,7 +311,6 @@ def _run_orchestrator_plan(
         "orchestrator",
         modality=modality,
         runtime_notes=ctx.run_environment_view.prompt_notes,
-        env_kind=ctx.run_environment_view.env_kind,
     )
     system_prompt = render_template(
         "orchestrator_plan_prompt.j2",

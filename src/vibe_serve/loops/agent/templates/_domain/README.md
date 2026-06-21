@@ -78,11 +78,10 @@ attached to the run. The useful variables:
 | `bench_path` | Benchmark harness dir, if a benchmark is attached (else falsy). |
 | `accuracy_checker_path` | Accuracy checker dir, if attached (else falsy). |
 | `runtime_notes` | Runtime-environment notes for the round. |
-| `env_kind` | Execution environment (`local`, `docker`, `modal`). |
 
 Not every variable is passed to every role — `bench_path` / `accuracy_checker_path`
 are judge-side, `reference_path` is builder-side, and the `orchestrator` role gets
-`modality` / `runtime_notes` / `env_kind`. Guard with `is defined` when in doubt.
+`modality` / `runtime_notes`. Guard with `is defined` when in doubt.
 
 Example (inside a `## judge` section):
 
