@@ -97,6 +97,27 @@ copying `generic.md` — no code change required.
 
 Full authoring guide: [`src/vibe_serve/loops/agent/templates/_domain/README.md`](src/vibe_serve/loops/agent/templates/_domain/README.md).
 
+## Languages — choosing the implementation toolchain
+
+A **language** is the orthogonal axis to `--domain`: it supplies the
+implementation-language toolchain (package manager, how to run code) and any
+language-specific review gate, while the domain supplies the problem-space
+knowledge. The two compose — a run is `--domain <what> --language <how>` — using
+the **same single-Markdown-file pack mechanism**.
+
+```bash
+vibe-serve --outer-loop agent --language python ...        # default (uv toolchain)
+vibe-serve --outer-loop agent --language generic ...       # no tooling prose
+vibe-serve --outer-loop agent --language ./my-lang.md ...  # your own (a path)
+```
+
+`--language` takes a **built-in name** (`python`, `generic`) **or a path**. The
+default `python` pack reproduces vibeserve's original `uv` tooling instructions,
+lifted out of the base prompts; copy `generic.md` to add another toolchain (e.g.
+Rust + `cargo`).
+
+Full authoring guide: [`src/vibe_serve/loops/agent/templates/_language/README.md`](src/vibe_serve/loops/agent/templates/_language/README.md).
+
 ## Per-target inputs
 
 Each evaluation target lives under `examples/<name>/`:

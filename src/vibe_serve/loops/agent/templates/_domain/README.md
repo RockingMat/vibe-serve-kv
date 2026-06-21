@@ -113,8 +113,9 @@ a private domain is just a path you pass.
 Domains cover **implementer + judge (+ single-agent + orchestrator) context**. Two adjacent
 concerns are deliberately *not* part of a domain file:
 
-- **Language/tooling** (e.g. "use `uv`/`pytest`") lives in the base prompt and is
-  the job of the (separate) language-selection work, not the domain.
+- **Language/tooling** (e.g. "use `uv`/`pytest`") is the job of the orthogonal
+  `--language` axis (a peer pack mechanism), not the domain. See
+  `../_language/README.md`.
 - **Profiling** (nsys/torch GPU capture) is selected by `--profiler` and rendered
   by the profiler prompts, not the domain. Domain-specific profiling is future
   work tied to pluggable profilers.

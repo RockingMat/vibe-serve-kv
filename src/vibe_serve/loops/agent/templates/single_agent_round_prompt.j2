@@ -42,8 +42,12 @@ Address every item above before declaring PASS this attempt.
 
 ## Workspace
 
-The shared experiment workspace is your working directory. Reference implementation: `{{ reference_path }}`. Use `uv` for Python packaging — `uv init` if needed, `uv add` for deps, `uv run` for execution.
+The shared experiment workspace is your working directory. Reference implementation: `{{ reference_path }}`.
 
+{% if language_single_agent %}
+{{ language_single_agent }}
+
+{% endif %}
 ## Profiling step
 
 After (and only after) the implementation passes your self-judge gates, capture a profile so the orchestrator has a bottleneck signal for the next round.

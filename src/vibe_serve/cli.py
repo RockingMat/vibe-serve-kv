@@ -24,6 +24,7 @@ from pathlib import Path
 
 from vibe_serve.config import Config, _load_config
 from vibe_serve.loops.agent.domain import DEFAULT_DOMAIN, builtin_domains
+from vibe_serve.loops.agent.language import DEFAULT_LANGUAGE, builtin_languages
 from vibe_serve.constants import (
     ComputeBackend,
     KNOWN_COMPUTE_BACKENDS,
@@ -415,6 +416,18 @@ def _build_agent_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--language",
+        default=DEFAULT_LANGUAGE,
+        metavar="NAME_OR_PATH",
+        help=(
+            "Language pack supplying the implementation toolchain (package "
+            "manager, run command) for the agents. A built-in name "
+            f"({', '.join(builtin_languages())}) or a path to your own .md file. "
+            f"Orthogonal to --domain. Default: {DEFAULT_LANGUAGE}. "
+            "See loops/agent/templates/_language/README.md."
+        ),
+    )
+    parser.add_argument(
         "--inner-loop",
         choices=["multi-agent", "single-agent"],
         default="multi-agent",
@@ -478,6 +491,7 @@ def _run_agent(args: argparse.Namespace) -> None:
         backend=backend,
         modality=args.modality,
         domain=args.domain,
+        language=args.language,
         inner_loop=args.inner_loop,
     )
 

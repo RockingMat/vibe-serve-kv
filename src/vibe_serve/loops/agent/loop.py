@@ -24,6 +24,11 @@ from vibe_serve.loops.agent.domain import (
     render_domain_section,
     resolve_domain,
 )
+from vibe_serve.loops.agent.language import (
+    DEFAULT_LANGUAGE,
+    render_language_section,
+    resolve_language,
+)
 from vibe_serve.schemas import (
     OrchestratorPlan,
     PreRoundDecision,
@@ -349,11 +354,19 @@ def _run_implementer(
     plan: OrchestratorPlan,
     modality: str,
     domain_path: Path,
+    language_path: Path,
     feedback: str | None,
     progress_path: Path,
 ) -> ImplementerResponse:
     domain_implementer = render_domain_section(
         domain_path,
+        "implementer",
+        modality=modality,
+        reference_path=ctx.ref_name,
+        runtime_notes=ctx.run_environment_view.prompt_notes,
+    )
+    language_implementer = render_language_section(
+        language_path,
         "implementer",
         modality=modality,
         reference_path=ctx.ref_name,
@@ -365,6 +378,7 @@ def _run_implementer(
         reference_path=ctx.ref_name,
         modality=modality,
         domain_implementer=domain_implementer,
+        language_implementer=language_implementer,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
         retry=retry,
@@ -399,11 +413,20 @@ def _run_judge(
     plan: OrchestratorPlan,
     modality: str,
     domain_path: Path,
+    language_path: Path,
     progress_path: Path,
     objective: str,
 ) -> JudgeResponse:
     domain_judge = render_domain_section(
         domain_path,
+        "judge",
+        modality=modality,
+        bench_path=ctx.judge_bench_path,
+        accuracy_checker_path=ctx.judge_acc_checker_path,
+        runtime_notes=ctx.run_environment_view.prompt_notes,
+    )
+    language_judge = render_language_section(
+        language_path,
         "judge",
         modality=modality,
         bench_path=ctx.judge_bench_path,
@@ -418,6 +441,7 @@ def _run_judge(
         pass_criteria=plan.pass_criteria,
         modality=modality,
         domain_judge=domain_judge,
+        language_judge=language_judge,
         retry=retry,
         runtime_notes=ctx.run_environment_view.prompt_notes,
         env_kind=ctx.run_environment_view.env_kind,
@@ -451,6 +475,7 @@ def _run_single_agent_round(
     plan: OrchestratorPlan,
     modality: str,
     domain_path: Path,
+    language_path: Path,
     feedback: str | None,
     progress_path: Path,
     objective: str,
@@ -471,12 +496,22 @@ def _run_single_agent_round(
         accuracy_checker_path=ctx.judge_acc_checker_path,
         runtime_notes=ctx.run_environment_view.prompt_notes,
     )
+    language_single_agent = render_language_section(
+        language_path,
+        "single_agent",
+        modality=modality,
+        reference_path=ctx.ref_name,
+        bench_path=ctx.judge_bench_path,
+        accuracy_checker_path=ctx.judge_acc_checker_path,
+        runtime_notes=ctx.run_environment_view.prompt_notes,
+    )
     system_prompt = render_template(
         "single_agent_round_prompt.j2",
         template_dir=_TEMPLATE_DIR,
         reference_path=ctx.ref_name,
         modality=modality,
         domain_single_agent=domain_single_agent,
+        language_single_agent=language_single_agent,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
         retry=retry,
@@ -556,6 +591,7 @@ def run_agent_loop(
     modality: str = "text_generation",
     inner_loop: str = "multi-agent",
     domain: str = DEFAULT_DOMAIN,
+    language: str = DEFAULT_LANGUAGE,
 ) -> bool:
     """Run the orchestrator-driven build loop.
 
@@ -576,9 +612,12 @@ def run_agent_loop(
         raise ValueError(
             f"Unknown inner_loop {inner_loop!r}; choose from {', '.join(_INNER_LOOPS)}"
         )
-    # Resolve the domain pack once (fail fast on an unknown name/path). The
-    # per-role sections are parsed and rendered into the prompts at each call site.
+    # Resolve the domain + language packs once (fail fast on an unknown
+    # name/path). The per-role sections are parsed and rendered into the prompts
+    # at each call site. Domain and language are orthogonal axes that inject at
+    # separate points in the same base prompts.
     domain_path = resolve_domain(domain)
+    language_path = resolve_language(language)
     run_environment = run_environment or make_run_environment_spec()
     ctx = _RunContext(
         config=config,
@@ -713,6 +752,7 @@ def run_agent_loop(
                         plan=plan,
                         modality=modality,
                         domain_path=domain_path,
+                        language_path=language_path,
                         feedback=feedback,
                         progress_path=progress_path,
                     )
@@ -724,6 +764,7 @@ def run_agent_loop(
                         plan=plan,
                         modality=modality,
                         domain_path=domain_path,
+                        language_path=language_path,
                         progress_path=progress_path,
                         objective=objective,
                     )
@@ -740,6 +781,7 @@ def run_agent_loop(
                         plan=plan,
                         modality=modality,
                         domain_path=domain_path,
+                        language_path=language_path,
                         feedback=feedback,
                         progress_path=progress_path,
                         objective=objective,

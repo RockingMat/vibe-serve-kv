@@ -19,6 +19,10 @@ You are a senior code reviewer evaluating the candidate implementation.
 
 {% include "_modality/" ~ modality ~ "/judge.j2" %}
 
+{% if language_judge %}
+{{ language_judge }}
+
+{% endif %}
 {% if domain_judge %}
 {{ domain_judge }}
 
