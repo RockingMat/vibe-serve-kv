@@ -19,15 +19,13 @@ from vibe_serve.config import Config
 from vibe_serve.constants import ComputeBackend, DEFAULT_COMPUTE_BACKEND
 from vibe_serve.context import _RunContext
 from vibe_serve.loops.agent import issue_board
-from vibe_serve.loops.agent.domain import (
+from vibe_serve.loops.agent.pack import (
     DEFAULT_DOMAIN,
-    render_domain_section,
-    resolve_domain,
-)
-from vibe_serve.loops.agent.language import (
     DEFAULT_LANGUAGE,
-    render_language_section,
-    resolve_language,
+    DOMAIN_DIR,
+    LANGUAGE_DIR,
+    render_pack_section,
+    resolve_pack,
 )
 from vibe_serve.schemas import (
     OrchestratorPlan,
@@ -311,7 +309,7 @@ def _run_orchestrator_plan(
     modality: str,
     domain_path: Path,
 ) -> OrchestratorPlan:
-    domain_orchestrator = render_domain_section(
+    domain_orchestrator = render_pack_section(
         domain_path,
         "orchestrator",
         modality=modality,
@@ -358,14 +356,14 @@ def _run_implementer(
     feedback: str | None,
     progress_path: Path,
 ) -> ImplementerResponse:
-    domain_implementer = render_domain_section(
+    domain_implementer = render_pack_section(
         domain_path,
         "implementer",
         modality=modality,
         reference_path=ctx.ref_name,
         runtime_notes=ctx.run_environment_view.prompt_notes,
     )
-    language_implementer = render_language_section(
+    language_implementer = render_pack_section(
         language_path,
         "implementer",
         modality=modality,
@@ -417,7 +415,7 @@ def _run_judge(
     progress_path: Path,
     objective: str,
 ) -> JudgeResponse:
-    domain_judge = render_domain_section(
+    domain_judge = render_pack_section(
         domain_path,
         "judge",
         modality=modality,
@@ -425,7 +423,7 @@ def _run_judge(
         accuracy_checker_path=ctx.judge_acc_checker_path,
         runtime_notes=ctx.run_environment_view.prompt_notes,
     )
-    language_judge = render_language_section(
+    language_judge = render_pack_section(
         language_path,
         "judge",
         modality=modality,
@@ -487,7 +485,7 @@ def _run_single_agent_round(
     multi-agent loop hands to the implementer is used here — it has
     workspace write access plus shell access for benchmarks/profiling.
     """
-    domain_single_agent = render_domain_section(
+    domain_single_agent = render_pack_section(
         domain_path,
         "single_agent",
         modality=modality,
@@ -496,7 +494,7 @@ def _run_single_agent_round(
         accuracy_checker_path=ctx.judge_acc_checker_path,
         runtime_notes=ctx.run_environment_view.prompt_notes,
     )
-    language_single_agent = render_language_section(
+    language_single_agent = render_pack_section(
         language_path,
         "single_agent",
         modality=modality,
@@ -616,8 +614,8 @@ def run_agent_loop(
     # name/path). The per-role sections are parsed and rendered into the prompts
     # at each call site. Domain and language are orthogonal axes that inject at
     # separate points in the same base prompts.
-    domain_path = resolve_domain(domain)
-    language_path = resolve_language(language)
+    domain_path = resolve_pack(domain, builtin_dir=DOMAIN_DIR, kind="domain")
+    language_path = resolve_pack(language, builtin_dir=LANGUAGE_DIR, kind="language")
     run_environment = run_environment or make_run_environment_spec()
     ctx = _RunContext(
         config=config,

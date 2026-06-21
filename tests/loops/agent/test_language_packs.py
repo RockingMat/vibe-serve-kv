@@ -10,17 +10,24 @@ multi-agent implementer/judge path.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 import pytest
 
-from vibe_serve.loops.agent.language import (
+from vibe_serve.loops.agent.pack import (
     DEFAULT_LANGUAGE,
-    builtin_languages,
-    render_language_section,
-    resolve_language,
+    LANGUAGE_DIR,
+    builtin_packs,
+    resolve_pack,
+)
+from vibe_serve.loops.agent.pack import (
+    render_pack_section as render_language_section,
 )
 from vibe_serve.prompts import render_template
+
+# This module exercises only the language axis; bind it once.
+resolve_language = partial(resolve_pack, builtin_dir=LANGUAGE_DIR, kind="language")
 
 _TEMPLATE_DIR = (
     Path(__file__).resolve().parents[3]
@@ -48,7 +55,7 @@ _PY_SINGLE_AGENT_LINE = (
 # resolver / defaults
 # --------------------------------------------------------------------------- #
 def test_builtins_present():
-    names = builtin_languages()
+    names = builtin_packs(LANGUAGE_DIR)
     assert "python" in names
     assert "generic" in names
     assert "README" not in names  # the authoring guide is not a language

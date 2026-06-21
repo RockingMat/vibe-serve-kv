@@ -6,21 +6,25 @@ mechanism, differing only in their on-disk directory and variable prefix:
 
 - **domain** (``--domain``, ``_domain/<name>.md`` → ``{{ domain_<role> }}``): what
   kind of system the agent is building and what "good" means there — the
-  background the implementer must read and the gates the judge must enforce. See
-  :mod:`vibe_serve.loops.agent.domain`.
+  background the implementer must read and the gates the judge and orchestrator
+  must enforce.
 - **language** (``--language``, ``_language/<name>.md`` → ``{{ language_<role> }}``):
   the implementation language's tooling and idioms (e.g. ``uv`` / ``uv run`` for
-  Python). See :mod:`vibe_serve.loops.agent.language`.
+  Python).
 
-This module is the shared machinery; ``domain.py`` and ``language.py`` are thin
-per-axis wrappers that bind a built-in directory, a default, and a ``kind`` label
-for error messages.
+The two axes are orthogonal — *domain* owns what you're building, *language* owns
+the tooling — and compose: their sections inject at separate points in the same
+base prompt. An axis is nothing more than a (built-in directory, default name)
+pair; callers pass the directory and a ``kind`` label straight to the functions
+below. The pairs live here as :data:`DOMAIN_DIR` / :data:`DEFAULT_DOMAIN` and
+:data:`LANGUAGE_DIR` / :data:`DEFAULT_LANGUAGE`.
 
     _<kind>/<name>.md
     ├── (free-form prose / description — ignored by the loop)
     ├── ## implementer    ← injected as {{ <kind>_implementer }}
     ├── ## judge          ← injected as {{ <kind>_judge }}
-    └── ## single_agent   ← injected as {{ <kind>_single_agent }}
+    ├── ## single_agent   ← injected as {{ <kind>_single_agent }}
+    └── ## orchestrator   ← injected as {{ <kind>_orchestrator }} (domain only)
 
 The section heading *is* the address: a line that is exactly ``## <role>`` (for a
 role in :data:`ROLES`) starts that role's section, which runs until the next role
@@ -45,6 +49,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from vibe_serve.prompts import render_string
+
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+# The two pack axes. Each is just a built-in directory plus a default selector;
+# callers pass these to ``resolve_pack`` / ``builtin_packs`` with a ``kind`` label.
+DOMAIN_DIR = _TEMPLATES_DIR / "_domain"
+LANGUAGE_DIR = _TEMPLATES_DIR / "_language"
+DEFAULT_DOMAIN = "llm-serving"
+DEFAULT_LANGUAGE = "python"
 
 # The roles a pack can contribute to. Each maps to a ``## <role>`` section in the
 # pack file and a ``{{ <kind>_<role> }}`` injection point in the corresponding

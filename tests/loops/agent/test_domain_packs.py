@@ -8,18 +8,25 @@ end-to-end injection into the base prompts for both built-in domains
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 import pytest
 
-from vibe_serve.loops.agent.domain import (
+from vibe_serve.loops.agent.pack import (
     DEFAULT_DOMAIN,
-    DOMAIN_ROLES,
-    builtin_domains,
-    render_domain_section,
-    resolve_domain,
+    DOMAIN_DIR,
+    ROLES,
+    builtin_packs,
+    resolve_pack,
+)
+from vibe_serve.loops.agent.pack import (
+    render_pack_section as render_domain_section,
 )
 from vibe_serve.prompts import render_template
+
+# This module exercises only the domain axis; bind it once.
+resolve_domain = partial(resolve_pack, builtin_dir=DOMAIN_DIR, kind="domain")
 
 _TEMPLATE_DIR = (
     Path(__file__).resolve().parents[3]
@@ -35,7 +42,7 @@ _TEMPLATE_DIR = (
 # resolver
 # --------------------------------------------------------------------------- #
 def test_builtins_present():
-    names = builtin_domains()
+    names = builtin_packs(DOMAIN_DIR)
     assert "llm-serving" in names
     assert "generic" in names
     assert "README" not in names  # the authoring guide is not a domain
@@ -175,7 +182,7 @@ def test_no_triple_blank_at_injection_point():
 # orchestrator role
 # --------------------------------------------------------------------------- #
 def test_orchestrator_is_a_domain_role():
-    assert "orchestrator" in DOMAIN_ROLES
+    assert "orchestrator" in ROLES
 
 
 def _render_orchestrator(domain: str) -> str:

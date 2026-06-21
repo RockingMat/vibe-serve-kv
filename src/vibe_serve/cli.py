@@ -23,8 +23,13 @@ import tomllib
 from pathlib import Path
 
 from vibe_serve.config import Config, _load_config
-from vibe_serve.loops.agent.domain import DEFAULT_DOMAIN, builtin_domains
-from vibe_serve.loops.agent.language import DEFAULT_LANGUAGE, builtin_languages
+from vibe_serve.loops.agent.pack import (
+    DEFAULT_DOMAIN,
+    DEFAULT_LANGUAGE,
+    DOMAIN_DIR,
+    LANGUAGE_DIR,
+    builtin_packs,
+)
 from vibe_serve.constants import (
     ComputeBackend,
     KNOWN_COMPUTE_BACKENDS,
@@ -410,8 +415,8 @@ def _build_agent_parser() -> argparse.ArgumentParser:
         metavar="NAME_OR_PATH",
         help=(
             "Domain pack supplying the implementer/judge context for your "
-            f"problem space. A built-in name ({', '.join(builtin_domains())}) "
-            "or a path to your own domain directory. Default: "
+            f"problem space. A built-in name ({', '.join(builtin_packs(DOMAIN_DIR))}) "
+            "or a path to your own .md file. Default: "
             f"{DEFAULT_DOMAIN}. See loops/agent/templates/_domain/README.md."
         ),
     )
@@ -422,7 +427,7 @@ def _build_agent_parser() -> argparse.ArgumentParser:
         help=(
             "Language pack supplying the implementation toolchain (package "
             "manager, run command) for the agents. A built-in name "
-            f"({', '.join(builtin_languages())}) or a path to your own .md file. "
+            f"({', '.join(builtin_packs(LANGUAGE_DIR))}) or a path to your own .md file. "
             f"Orthogonal to --domain. Default: {DEFAULT_LANGUAGE}. "
             "See loops/agent/templates/_language/README.md."
         ),
