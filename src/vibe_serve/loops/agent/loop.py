@@ -303,7 +303,16 @@ def _run_orchestrator_plan(
     progress_path: Path,
     roadmap_text: str,
     plateau_warning: str | None,
+    modality: str,
+    domain_path: Path,
 ) -> OrchestratorPlan:
+    domain_orchestrator = render_domain_section(
+        domain_path,
+        "orchestrator",
+        modality=modality,
+        runtime_notes=ctx.run_environment_view.prompt_notes,
+        env_kind=ctx.run_environment_view.env_kind,
+    )
     system_prompt = render_template(
         "orchestrator_plan_prompt.j2",
         template_dir=_TEMPLATE_DIR,
@@ -313,6 +322,7 @@ def _run_orchestrator_plan(
         exhaustion_info=carry.exhaustion_info,
         roadmap_text=roadmap_text,
         plateau_warning=plateau_warning,
+        domain_orchestrator=domain_orchestrator,
         runtime_notes=ctx.run_environment_view.prompt_notes,
         env_kind=ctx.run_environment_view.env_kind,
     )
@@ -661,6 +671,8 @@ def run_agent_loop(
                 progress_path=progress_path,
                 roadmap_text=roadmap_text,
                 plateau_warning=plateau_warning,
+                modality=modality,
+                domain_path=domain_path,
             )
 
             # No early stop: the loop always consumes the full max_rounds

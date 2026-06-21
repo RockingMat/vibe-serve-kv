@@ -14,6 +14,7 @@ import pytest
 
 from vibe_serve.loops.agent.domain import (
     DEFAULT_DOMAIN,
+    DOMAIN_ROLES,
     builtin_domains,
     render_domain_section,
     resolve_domain,
@@ -168,3 +169,53 @@ def test_no_triple_blank_at_injection_point():
     idx = out.index("## Progress tracking")
     window = out[max(0, idx - 6) : idx]
     assert "\n\n\n" not in window
+
+
+# --------------------------------------------------------------------------- #
+# orchestrator role
+# --------------------------------------------------------------------------- #
+def test_orchestrator_is_a_domain_role():
+    assert "orchestrator" in DOMAIN_ROLES
+
+
+def _render_orchestrator(domain: str) -> str:
+    section = render_domain_section(
+        resolve_domain(domain), "orchestrator", modality="text_generation"
+    )
+    return render_template(
+        "orchestrator_plan_prompt.j2",
+        template_dir=_TEMPLATE_DIR,
+        objective="OBJ",
+        profiler_summary=None,
+        regression_info=None,
+        exhaustion_info=None,
+        roadmap_text="ROADMAP",
+        plateau_warning=None,
+        domain_orchestrator=section,
+        runtime_notes="",
+        env_kind="local",
+    )
+
+
+def test_llm_serving_provides_orchestrator_optimization_floor():
+    section = render_domain_section(
+        resolve_domain("llm-serving"), "orchestrator", modality="text_generation"
+    )
+    assert "Optimization priority" in section
+    assert "Continuous batching" in section
+
+
+def test_llm_serving_orchestrator_floor_injected_into_plan():
+    out = _render_orchestrator("llm-serving")
+    assert "Optimization priority" in out
+    # the line-39 back-reference resolves when a floor is provided
+    assert "the optimization-floor section below" in out
+
+
+def test_generic_orchestrator_has_no_llm_floor():
+    out = _render_orchestrator("generic")
+    # the prescriptive LLM floor is gone, and its back-reference collapses
+    assert "Optimization priority" not in out
+    assert "Continuous batching" not in out
+    assert "the optimization-floor section below" not in out
+    assert "## Task granularity" in out  # base skeleton intact

@@ -40,19 +40,27 @@ What the reviewer must check for this domain.
 
 ## single_agent       ← injected as {{ domain_single_agent }} (optional)
 Combined builder+reviewer context for the single-agent ablation.
+
+## orchestrator       ← injected as {{ domain_orchestrator }} (optional)
+Planning guidance for the round orchestrator — e.g. the optimization floor it
+should establish before chasing workload-specific wins.
 ```
 
 Rules:
 
 - **The heading is the address.** A line that is exactly `## implementer`,
-  `## judge`, or `## single_agent` starts that role's section; it runs until the
-  next role heading. Your section body can use its own `##` sub-headings — only
-  those three exact names delimit a section.
+  `## judge`, `## single_agent`, or `## orchestrator` starts that role's section;
+  it runs until the next role heading. Your section body can use its own `##`
+  sub-headings — only those four exact names delimit a section.
 - **A missing section injects nothing** for that role.
 - **`## single_agent` is optional.** Omit it and it's derived automatically by
   concatenating your `## implementer` and `## judge` sections — no third copy to
   hand-maintain. Add it only when the single-agent ablation needs different
   framing.
+- **`## orchestrator` is optional.** Omit it to inject nothing into the planner
+  prompt (its neutral skeleton still applies). Add it to give the planner
+  domain-specific strategy — `llm-serving` uses it for the
+  continuous-batching/attention-kernel/CUDA-graph optimization floor.
 - Write normal Markdown prose. The base template owns the surrounding structure
   (task, pass criteria, workspace, output contract); your section owns the
   domain content.
@@ -70,6 +78,11 @@ attached to the run. The useful variables:
 | `bench_path` | Benchmark harness dir, if a benchmark is attached (else falsy). |
 | `accuracy_checker_path` | Accuracy checker dir, if attached (else falsy). |
 | `runtime_notes` | Runtime-environment notes for the round. |
+| `env_kind` | Execution environment (`local`, `docker`, `modal`). |
+
+Not every variable is passed to every role — `bench_path` / `accuracy_checker_path`
+are judge-side, `reference_path` is builder-side, and the `orchestrator` role gets
+`modality` / `runtime_notes` / `env_kind`. Guard with `is defined` when in doubt.
 
 Example (inside a `## judge` section):
 
@@ -98,7 +111,7 @@ a private domain is just a path you pass.
 
 ## Scope
 
-Domains cover **implementer + judge (+ single-agent) context**. Two adjacent
+Domains cover **implementer + judge (+ single-agent + orchestrator) context**. Two adjacent
 concerns are deliberately *not* part of a domain file:
 
 - **Language/tooling** (e.g. "use `uv`/`pytest`") lives in the base prompt and is

@@ -138,3 +138,22 @@ The `serving-systems` skill is installed in your working directory with a `refer
 ## Reward-hack discipline (you are also the judge — do not let yourself cheat)
 
 Do not introduce a code path that satisfies the schema or accuracy checker without running the model — no schema synthesizers, no prerecorded-answer caches, no constant templates, no "hot path" that returns bytes without invoking the model on steady-state requests. The accuracy checker's sentinel test will fail a prompt-ignoring shortcut, but you should refuse to write one in the first place. If you ever find such a path, your verdict is **fail** and your `feedback` must name the function/branch/flag to remove.
+
+## orchestrator
+## Optimization priority (read before choosing the next task)
+
+Serving systems have a well-established **optimization floor**: three techniques every production LLM server ships with, because each addresses a fundamental cost source the workload cannot avoid on NVIDIA hardware. Before proposing any workload-specific optimization (speculative decoding, prompt/prefix caching, grammar-constrained decoding fast paths, schema minimization, etc.), confirm all three are in place unless a specific one is **absolutely incompatible** with the objective:
+
+1. **Continuous batching** (see `skills/serving-systems/algorithms/continuous-batching/`).
+2. **Attention kernel** — FlashInfer or FlashAttention (see `skills/serving-systems/backends/flashinfer/` and `skills/serving-systems/backends/flashattention/`).
+3. **CUDA graphs** (see `skills/serving-systems/backends/cuda-graph/`). 
+
+**Only after these three are present and verified** (profiler-confirmed kernel count drops, FlashInfer calls visible, graph replay counters non-zero) should you spend rounds on workload-specific optimizations like speculative decoding, grammar-based fast paths, or prompt / prefix caching.
+
+The three exceptions that let you skip a floor item:
+
+- **Continuous batching**: skip when the benchmark / objective is single-batch by contract.
+- **Attention kernel**: skip when running on non-NVIDIA hardware where neither FlashInfer nor FlashAttention ships (Apple → MLX; AMD → the upstreamed FA AMD port).
+- **CUDA graphs**: skip when the decode shapes are genuinely unbucketable (very rare — even speculative-decoding tree depths and chunked-prefill chunk sizes are ≤ 16 buckets).
+
+If you skip a floor item, cite the specific incompatibility in your `reasoning`. Do NOT skip because "the current profile shows something else is the dominant cost" — the floor items *become* the dominant cost in turn once other work lands, and cycling between "revert this, try that" over exotic optimizations without the floor in place is a common failure mode of this loop.

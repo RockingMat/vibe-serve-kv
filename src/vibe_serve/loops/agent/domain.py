@@ -41,7 +41,7 @@ DEFAULT_DOMAIN = "llm-serving"
 # The roles a domain pack can contribute to. Each maps to a ``## <role>`` section
 # in the domain file and a ``{{ domain_<role> }}`` injection point in the
 # corresponding base prompt.
-DOMAIN_ROLES: tuple[str, ...] = ("implementer", "judge", "single_agent")
+DOMAIN_ROLES: tuple[str, ...] = ("implementer", "judge", "single_agent", "orchestrator")
 
 _BUILTIN_DOMAINS_DIR = Path(__file__).resolve().parent / "templates" / "_domain"
 
