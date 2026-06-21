@@ -3,83 +3,128 @@
 A *domain* tells the agent loop what kind of system it is building and what
 "good" means there: the background knowledge the implementer must read, and the
 correctness/performance/integrity gates the judge must enforce. It is selected
-with ``--domain`` and bundled as a directory of small Jinja partials, one per
-role:
+with ``--domain`` and authored as a **single Markdown file** whose ``##`` role
+sections are injected into the neutral base prompts:
 
-    _domain/<name>/
-    ├── domain.md          ← human label + "use for…" description
-    ├── implementer.j2     ← injected as {{ domain_implementer }}
-    ├── judge.j2           ← injected as {{ domain_judge }}
-    └── single_agent.j2    ← injected as {{ domain_single_agent }}
+    _domain/<name>.md
+    ├── (free-form prose / description — ignored by the loop)
+    ├── ## implementer    ← injected as {{ domain_implementer }}
+    ├── ## judge          ← injected as {{ domain_judge }}
+    └── ## single_agent   ← injected as {{ domain_single_agent }}
 
-The neutral base prompts carry zero domain prose; they render the selected pack's
-role file into a single ``{{ domain_<role> }}`` variable (the same
-variable-injection pattern :class:`vibe_serve.prompts.ComputeBackendFragment`
-uses for backend fragments). A missing role file injects nothing.
+The section heading *is* the address: a line that is exactly ``## <role>`` (for a
+role in :data:`DOMAIN_ROLES`) starts that role's section, which runs until the
+next role heading. The section body is normal Markdown — it may use its own
+``##`` sub-headings (those never match a role name) and may use ``{% if %}``
+Jinja to branch on the run's context. Any prose before the first role heading is
+human documentation and is not injected.
 
-``--domain`` accepts a **built-in name** (a directory under
-``loops/agent/templates/_domain/``) or a **path** to a user's own domain
-directory anywhere on disk, so users can author their own without touching
-vibeserve. See ``loops/agent/templates/_domain/README.md`` for the authoring
-guide.
+A missing role section injects nothing. ``single_agent`` is special: if the file
+has no ``## single_agent`` section, it is *derived* by concatenating the
+``implementer`` and ``judge`` sections, so authors don't hand-maintain a third
+copy.
+
+``--domain`` accepts a **built-in name** (a ``<name>.md`` under
+``loops/agent/templates/_domain/``) or a **path** to a user's own ``.md`` file
+anywhere on disk, so users can author their own without touching vibeserve. See
+``loops/agent/templates/_domain/README.md`` for the authoring guide.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from vibe_serve.prompts import render_template
+from vibe_serve.prompts import render_string
 
 DEFAULT_DOMAIN = "llm-serving"
 
-# The roles a domain pack can contribute to, in (role file stem) form. Each maps
-# to a ``{{ domain_<role> }}`` injection point in the corresponding base prompt.
+# The roles a domain pack can contribute to. Each maps to a ``## <role>`` section
+# in the domain file and a ``{{ domain_<role> }}`` injection point in the
+# corresponding base prompt.
 DOMAIN_ROLES: tuple[str, ...] = ("implementer", "judge", "single_agent")
 
 _BUILTIN_DOMAINS_DIR = Path(__file__).resolve().parent / "templates" / "_domain"
 
 
 def builtin_domains() -> list[str]:
-    """Names of the built-in domain packs (directories under ``_domain/``)."""
+    """Names of the built-in domain packs (``<name>.md`` files under ``_domain/``)."""
     if not _BUILTIN_DOMAINS_DIR.is_dir():
         return []
     return sorted(
-        p.name for p in _BUILTIN_DOMAINS_DIR.iterdir() if p.is_dir()
+        p.stem for p in _BUILTIN_DOMAINS_DIR.glob("*.md") if p.name != "README.md"
     )
 
 
 def resolve_domain(spec: str) -> Path:
-    """Resolve a ``--domain`` value to a domain-pack directory.
+    """Resolve a ``--domain`` value to a domain-pack Markdown file.
 
-    ``spec`` is either a path to a domain directory (used as-is) or the name of a
-    built-in pack under ``_domain/``. Raises ``ValueError`` with the list of
+    ``spec`` is either a path to a ``.md`` file (used as-is) or the name of a
+    built-in pack (``_domain/<spec>.md``). Raises ``ValueError`` with the list of
     built-ins if neither resolves.
     """
     candidate = Path(spec).expanduser()
-    if candidate.is_dir():
+    if candidate.is_file():
         return candidate.resolve()
 
-    builtin = _BUILTIN_DOMAINS_DIR / spec
-    if builtin.is_dir():
+    builtin = _BUILTIN_DOMAINS_DIR / f"{spec}.md"
+    if builtin.is_file():
         return builtin
 
     raise ValueError(
         f"Unknown domain {spec!r}. Pass a built-in name "
-        f"({', '.join(builtin_domains())}) or a path to a domain directory."
+        f"({', '.join(builtin_domains())}) or a path to a domain .md file."
     )
 
 
-def render_domain_section(domain_dir: Path, role: str, **context: object) -> str:
-    """Render a domain pack's ``<role>.j2`` partial, or ``""`` if absent/empty.
+def _role_heading(line: str) -> str | None:
+    """Return the role name if ``line`` is exactly a ``## <role>`` heading.
 
-    The partial is rendered with ``context`` (e.g. ``modality``, ``bench_path``,
-    ``accuracy_checker_path``) so domain authors can branch on the run. Leading
-    and trailing blank lines are stripped — the base template owns the spacing
-    around the ``{{ domain_<role> }}`` injection point.
+    Only headings whose text matches a name in :data:`DOMAIN_ROLES` delimit a
+    section, so a body's own ``## Required: …`` sub-headings are left intact.
     """
-    role_file = domain_dir / f"{role}.j2"
-    if not role_file.is_file():
+    stripped = line.strip()
+    if not stripped.startswith("##"):
+        return None
+    name = stripped.lstrip("#").strip()
+    return name if name in DOMAIN_ROLES else None
+
+
+def _load_sections(domain_file: Path) -> dict[str, str]:
+    """Parse a domain file into ``{role: raw_section_text}``.
+
+    Lines before the first role heading (description prose) are ignored.
+    """
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in domain_file.read_text().splitlines():
+        heading = _role_heading(line)
+        if heading is not None:
+            current = heading
+            sections.setdefault(current, [])
+            continue
+        if current is not None:
+            sections[current].append(line)
+    return {role: "\n".join(lines).strip("\n") for role, lines in sections.items()}
+
+
+def render_domain_section(domain_file: Path, role: str, **context: object) -> str:
+    """Render a domain file's ``## <role>`` section, or ``""`` if absent/empty.
+
+    The section is rendered through Jinja with ``context`` (e.g. ``modality``,
+    ``bench_path``, ``accuracy_checker_path``) so domain authors can branch on
+    the run. ``single_agent`` falls back to ``implementer`` + ``judge`` when the
+    file has no explicit ``## single_agent`` section. Leading and trailing blank
+    lines are stripped — the base template owns the spacing around the
+    ``{{ domain_<role> }}`` injection point.
+    """
+    sections = _load_sections(domain_file)
+    raw = sections.get(role)
+    if raw is None and role == "single_agent":
+        raw = "\n\n".join(
+            text
+            for text in (sections.get("implementer"), sections.get("judge"))
+            if text
+        )
+    if not raw:
         return ""
-    return render_template(
-        f"{role}.j2", template_dir=domain_dir, **context
-    ).strip("\n")
+    return render_string(raw, **context).strip("\n")

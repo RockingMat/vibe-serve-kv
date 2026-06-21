@@ -1,9 +1,9 @@
 """Tests for domain packs — the ``--domain`` pluggable-context mechanism.
 
-Covers the resolver (built-in name / path / error), the per-role renderer
-(present, empty, missing), and end-to-end injection into the base prompts for
-both built-in domains (``llm-serving`` carries serving prose; ``generic``
-injects nothing of its own).
+Covers the resolver (built-in name / path / error), the section renderer
+(present, empty, missing, ``single_agent`` derivation, context branching), and
+end-to-end injection into the base prompts for both built-in domains
+(``llm-serving`` carries serving prose; ``generic`` injects nothing of its own).
 """
 
 from __future__ import annotations
@@ -37,19 +37,21 @@ def test_builtins_present():
     names = builtin_domains()
     assert "llm-serving" in names
     assert "generic" in names
+    assert "README" not in names  # the authoring guide is not a domain
     assert DEFAULT_DOMAIN == "llm-serving"
 
 
 def test_resolve_builtin_name():
     d = resolve_domain("llm-serving")
-    assert d.is_dir()
-    assert (d / "domain.md").is_file()
+    assert d.is_file()
+    assert d.name == "llm-serving.md"
 
 
 def test_resolve_path(tmp_path: Path):
-    (tmp_path / "domain.md").write_text("# Mine\n")
-    d = resolve_domain(str(tmp_path))
-    assert d == tmp_path.resolve()
+    f = tmp_path / "mine.md"
+    f.write_text("# Mine\n\n## implementer\nhello\n")
+    d = resolve_domain(str(f))
+    assert d == f.resolve()
 
 
 def test_resolve_unknown_raises():
@@ -60,14 +62,17 @@ def test_resolve_unknown_raises():
 
 
 # --------------------------------------------------------------------------- #
-# per-role renderer
+# section renderer
 # --------------------------------------------------------------------------- #
 def test_render_missing_role_is_empty(tmp_path: Path):
-    # a domain dir with no <role>.j2 injects nothing
-    assert render_domain_section(tmp_path, "implementer") == ""
+    # a domain file with no matching ## <role> section injects nothing
+    f = tmp_path / "d.md"
+    f.write_text("# Just docs, no role sections\n")
+    assert render_domain_section(f, "implementer") == ""
 
 
 def test_render_empty_role_is_empty():
+    # generic.md has no role sections, so every role injects nothing
     d = resolve_domain("generic")
     for role in ("implementer", "judge", "single_agent"):
         assert render_domain_section(d, role) == ""
@@ -81,10 +86,12 @@ def test_render_llm_serving_has_content():
     assert impl  # non-empty
     # leading/trailing blank lines are stripped — base template owns spacing
     assert impl == impl.strip("\n")
+    # the body keeps its own ## sub-headings (not treated as role delimiters)
+    assert "## Required:" in impl
 
 
 def test_render_role_branches_on_context():
-    """A role file rendered with bench_path set should reference it."""
+    """A role section rendered with bench_path set should reference it."""
     d = resolve_domain("llm-serving")
     with_bench = render_domain_section(
         d, "judge", modality="text_generation", bench_path="/BENCHX"
@@ -94,6 +101,26 @@ def test_render_role_branches_on_context():
     )
     assert "/BENCHX" in with_bench
     assert "/BENCHX" not in without_bench
+
+
+def test_single_agent_uses_explicit_section_when_present():
+    # llm-serving.md ships a bespoke ## single_agent section
+    d = resolve_domain("llm-serving")
+    sa = render_domain_section(
+        d, "single_agent", modality="text_generation", reference_path="/ref"
+    )
+    assert "do not let yourself cheat" in sa  # text unique to that section
+
+
+def test_single_agent_derives_from_implementer_and_judge(tmp_path: Path):
+    # no ## single_agent section -> derived from implementer + judge
+    f = tmp_path / "d.md"
+    f.write_text(
+        "# D\n\n## implementer\nIMPL-BODY\n\n## judge\nJUDGE-BODY\n"
+    )
+    sa = render_domain_section(f, "single_agent")
+    assert "IMPL-BODY" in sa
+    assert "JUDGE-BODY" in sa
 
 
 # --------------------------------------------------------------------------- #

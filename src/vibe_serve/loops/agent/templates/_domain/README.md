@@ -9,42 +9,59 @@ what does 'good' mean here?"* — kept separate from the neutral prompt skeleton
 Pick one with `--domain` (agent loop):
 
 ```bash
-vibe-serve --outer-loop agent --domain llm-serving ...   # default
-vibe-serve --outer-loop agent --domain generic ...       # no domain context
-vibe-serve --outer-loop agent --domain ./my-domain ...   # your own (a path)
+vibe-serve --outer-loop agent --domain llm-serving ...      # default
+vibe-serve --outer-loop agent --domain generic ...          # no domain context
+vibe-serve --outer-loop agent --domain ./my-domain.md ...   # your own (a path)
 ```
 
-`--domain` accepts either a **built-in name** (a directory under this `_domain/`)
-or a **path** to your own domain directory anywhere on disk. Built-ins:
+`--domain` accepts either a **built-in name** (a `<name>.md` next to this file)
+or a **path** to your own `.md` file anywhere on disk. Built-ins:
 
 | Domain        | What it does |
 |---------------|--------------|
 | `llm-serving` | The default. LLM inference server context: the `serving-systems` skill/references, `/model` weights, the accuracy + benchmark + reward-hack judge gates. |
 | `generic`     | Empty — no domain prose injected. The neutral baseline; copy it to start your own. |
 
-## Anatomy of a domain pack
+## Anatomy of a domain file
 
-A domain is just a directory with up to four files. All are optional except
-`domain.md`; a missing role file means "inject nothing for that role".
+A domain is **one Markdown file**. The injected content lives under `##` headings
+named for the agent roles; everything before the first role heading is human
+documentation (a title, a "use for…" line) and is ignored by the loop.
 
+```markdown
+# My domain
+**Use for:** a one-line description of when to reach for this domain.
+
+## implementer        ← injected as {{ domain_implementer }}
+What the builder must know / read for this domain.
+
+## judge              ← injected as {{ domain_judge }}
+What the reviewer must check for this domain.
+
+## single_agent       ← injected as {{ domain_single_agent }} (optional)
+Combined builder+reviewer context for the single-agent ablation.
 ```
-my-domain/
-├── domain.md          ← human label + one-line "use for…" description (required)
-├── implementer.j2     ← what the builder must know/read for this domain
-├── judge.j2           ← what the reviewer must check for this domain
-└── single_agent.j2    ← combined builder+reviewer context (single-agent ablation)
-```
 
-The `.j2` files are dropped into the base prompts at a single, clearly-labelled
-injection point per role (`{{ domain_implementer }}`, `{{ domain_judge }}`,
-`{{ domain_single_agent }}`). Write normal Markdown prose with your own `##`
-section headers — the base template owns the surrounding structure (task, pass
-criteria, workspace, output contract); your file owns the domain content.
+Rules:
 
-### Variables available to a role file
+- **The heading is the address.** A line that is exactly `## implementer`,
+  `## judge`, or `## single_agent` starts that role's section; it runs until the
+  next role heading. Your section body can use its own `##` sub-headings — only
+  those three exact names delimit a section.
+- **A missing section injects nothing** for that role.
+- **`## single_agent` is optional.** Omit it and it's derived automatically by
+  concatenating your `## implementer` and `## judge` sections — no third copy to
+  hand-maintain. Add it only when the single-agent ablation needs different
+  framing.
+- Write normal Markdown prose. The base template owns the surrounding structure
+  (task, pass criteria, workspace, output contract); your section owns the
+  domain content.
 
-Role files are rendered with Jinja, so you can branch on the run's context. The
-useful variables:
+### Branching on the run (optional Jinja)
+
+Section bodies are rendered with Jinja, so you can branch on the run's context.
+Most domains never need this — reach for it only when a gate depends on what's
+attached to the run. The useful variables:
 
 | Variable | Meaning |
 |----------|---------|
@@ -54,7 +71,7 @@ useful variables:
 | `accuracy_checker_path` | Accuracy checker dir, if attached (else falsy). |
 | `runtime_notes` | Runtime-environment notes for the round. |
 
-Example (`judge.j2`):
+Example (inside a `## judge` section):
 
 ```jinja
 ## Correctness gates
@@ -67,21 +84,22 @@ Example (`judge.j2`):
 
 ## How to author your own
 
-1. Copy `generic/` to a new directory (in-repo `_domain/<name>/`, or anywhere on
+1. Copy `generic.md` to a new file (in-repo `_domain/<name>.md`, or anywhere on
    disk you'll point `--domain` at).
-2. Edit `domain.md` with a title and a one-line "use for…" line.
-3. Fill `implementer.j2` (what to read / what "done" means here) and `judge.j2`
-   (what to check). Leave a file empty to inject nothing for that role.
-4. Optionally fill `single_agent.j2` for the `--inner-loop single-agent` ablation.
+2. Edit the title and "use for…" line at the top.
+3. Fill `## implementer` (what to read / what "done" means here) and `## judge`
+   (what to check). Leave a section out to inject nothing for that role.
+4. Optionally add `## single_agent` for the `--inner-loop single-agent` ablation;
+   omit it to derive it from the other two.
 5. Run `vibe-serve --outer-loop agent --domain <name-or-path> ...`.
 
-That's it — no code change. A new built-in domain is just a new directory here; a
-private domain is just a path you pass.
+That's it — no code change. A new built-in domain is just a new `.md` file here;
+a private domain is just a path you pass.
 
 ## Scope
 
 Domains cover **implementer + judge (+ single-agent) context**. Two adjacent
-concerns are deliberately *not* part of a domain pack:
+concerns are deliberately *not* part of a domain file:
 
 - **Language/tooling** (e.g. "use `uv`/`pytest`") lives in the base prompt and is
   the job of the (separate) language-selection work, not the domain.

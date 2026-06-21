@@ -339,12 +339,12 @@ def _run_implementer(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
-    domain_dir: Path,
+    domain_path: Path,
     feedback: str | None,
     progress_path: Path,
 ) -> ImplementerResponse:
     domain_implementer = render_domain_section(
-        domain_dir,
+        domain_path,
         "implementer",
         modality=modality,
         reference_path=ctx.ref_name,
@@ -389,12 +389,12 @@ def _run_judge(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
-    domain_dir: Path,
+    domain_path: Path,
     progress_path: Path,
     objective: str,
 ) -> JudgeResponse:
     domain_judge = render_domain_section(
-        domain_dir,
+        domain_path,
         "judge",
         modality=modality,
         bench_path=ctx.judge_bench_path,
@@ -441,7 +441,7 @@ def _run_single_agent_round(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
-    domain_dir: Path,
+    domain_path: Path,
     feedback: str | None,
     progress_path: Path,
     objective: str,
@@ -454,7 +454,7 @@ def _run_single_agent_round(
     workspace write access plus shell access for benchmarks/profiling.
     """
     domain_single_agent = render_domain_section(
-        domain_dir,
+        domain_path,
         "single_agent",
         modality=modality,
         reference_path=ctx.ref_name,
@@ -568,8 +568,8 @@ def run_agent_loop(
             f"Unknown inner_loop {inner_loop!r}; choose from {', '.join(_INNER_LOOPS)}"
         )
     # Resolve the domain pack once (fail fast on an unknown name/path). The
-    # per-role partials are rendered into the prompts at each call site.
-    domain_dir = resolve_domain(domain)
+    # per-role sections are parsed and rendered into the prompts at each call site.
+    domain_path = resolve_domain(domain)
     run_environment = run_environment or make_run_environment_spec()
     ctx = _RunContext(
         config=config,
@@ -701,7 +701,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
-                        domain_dir=domain_dir,
+                        domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
                     )
@@ -712,7 +712,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
-                        domain_dir=domain_dir,
+                        domain_path=domain_path,
                         progress_path=progress_path,
                         objective=objective,
                     )
@@ -728,7 +728,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
-                        domain_dir=domain_dir,
+                        domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
                         objective=objective,
