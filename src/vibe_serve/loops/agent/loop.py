@@ -24,6 +24,13 @@ from vibe_serve.loops.agent.domain import (
     render_domain_section,
     resolve_domain,
 )
+
+# Implementation-language modes, selected by ``--interface`` (not a user-facing
+# language choice). ``inprocess`` pins Python so the accuracy checker can import
+# ``main.py`` directly; ``service`` evaluates the artifact only over the wire and
+# leaves the language to the agent.
+_INTERFACES = ("inprocess", "service")
+DEFAULT_INTERFACE = "inprocess"
 from vibe_serve.schemas import (
     OrchestratorPlan,
     PreRoundDecision,
@@ -364,6 +371,7 @@ def _run_implementer(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     feedback: str | None,
     progress_path: Path,
@@ -376,6 +384,7 @@ def _run_implementer(
         template_dir=_TEMPLATE_DIR,
         reference_path=ctx.ref_name,
         modality=modality,
+        interface=interface,
         domain_implementer=domain_implementer,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
@@ -410,6 +419,7 @@ def _run_judge(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     progress_path: Path,
     objective: str,
@@ -424,6 +434,7 @@ def _run_judge(
         bench_path=ctx.judge_bench_path,
         pass_criteria=plan.pass_criteria,
         modality=modality,
+        interface=interface,
         domain_judge=domain_judge,
         retry=retry,
         runtime_notes=ctx.run_environment_view.prompt_notes,
@@ -457,6 +468,7 @@ def _run_single_agent_round(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     feedback: str | None,
     progress_path: Path,
@@ -477,6 +489,7 @@ def _run_single_agent_round(
         template_dir=_TEMPLATE_DIR,
         reference_path=ctx.ref_name,
         modality=modality,
+        interface=interface,
         domain_single_agent=domain_single_agent,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
@@ -557,6 +570,7 @@ def run_agent_loop(
     modality: str = "text_generation",
     inner_loop: str = "multi-agent",
     domain: str = DEFAULT_DOMAIN,
+    interface: str = DEFAULT_INTERFACE,
 ) -> bool:
     """Run the orchestrator-driven build loop.
 
@@ -572,13 +586,29 @@ def run_agent_loop(
       invocation per retry. Pre-round decision and standalone profiler
       passes are skipped; the prior round's profile output is fed to the
       orchestrator as ``profiler_summary``.
+
+    ``interface`` selects the artifact's evaluation contract and, with it, the
+    implementation language (the user never picks a language directly):
+
+    - ``"inprocess"`` (default): the accuracy checker imports ``main.py`` in
+      process, so the implementation must be Python; the prompts carry the
+      ``uv`` toolchain and the ``VibeServeModel`` import contract.
+    - ``"service"``: the artifact is exercised only over its network interface,
+      so the agent may implement it in any language. The in-process contract and
+      the Python/torch tooling are dropped from the prompts.
     """
     if inner_loop not in _INNER_LOOPS:
         raise ValueError(
             f"Unknown inner_loop {inner_loop!r}; choose from {', '.join(_INNER_LOOPS)}"
         )
+    if interface not in _INTERFACES:
+        raise ValueError(
+            f"Unknown interface {interface!r}; choose from {', '.join(_INTERFACES)}"
+        )
     # Resolve the domain pack once (fail fast on an unknown name/path). The
-    # per-role sections are parsed and rendered into the prompts at each call site.
+    # per-role sections are parsed and rendered into the prompts at each call
+    # site. The implementation language is not a pack — ``interface`` carries it
+    # (``inprocess`` pins Python; ``service`` leaves it to the agent).
     domain_path = resolve_domain(domain)
     run_environment = run_environment or make_run_environment_spec()
     ctx = _RunContext(
@@ -713,6 +743,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
@@ -724,6 +755,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         progress_path=progress_path,
                         objective=objective,
@@ -740,6 +772,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
