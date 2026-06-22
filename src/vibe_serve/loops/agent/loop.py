@@ -24,6 +24,13 @@ from vibe_serve.loops.agent.domain import (
     render_domain_section,
     resolve_domain,
 )
+
+# Implementation-language modes, selected by ``--interface`` (not a user-facing
+# language choice). ``inprocess`` pins Python so the accuracy checker can import
+# ``main.py`` directly; ``service`` evaluates the artifact only over the wire and
+# leaves the language to the agent.
+_INTERFACES = ("inprocess", "service")
+DEFAULT_INTERFACE = "inprocess"
 from vibe_serve.schemas import (
     OrchestratorPlan,
     PreRoundDecision,
@@ -293,18 +300,22 @@ def _run_profiler(
     return summary
 
 
-def _domain_render_context(ctx: _RunContext, modality: str) -> dict[str, object]:
+def _domain_render_context(
+    ctx: _RunContext, modality: str, interface: str
+) -> dict[str, object]:
     """The uniform variable set every domain ``## <role>`` section is rendered with.
 
     One context contract for all roles: a pack author can branch (``{% if … %}``)
     on any of these in any role section without memorizing which the loop happens
     to pass to which role. Variables that don't apply to the current run are
     falsy (``bench_path`` / ``accuracy_checker_path`` when nothing is attached),
-    so ``{% if bench_path %}`` works everywhere. See
-    ``templates/_domain/README.md``.
+    so ``{% if bench_path %}`` works everywhere. ``interface`` lets a
+    language-agnostic pack drop its in-process/Python-specific gates under
+    ``--interface service``. See ``templates/_domain/README.md``.
     """
     return {
         "modality": modality,
+        "interface": interface,
         "reference_path": ctx.ref_name,
         "bench_path": ctx.judge_bench_path,
         "accuracy_checker_path": ctx.judge_acc_checker_path,
@@ -323,10 +334,11 @@ def _run_orchestrator_plan(
     roadmap_text: str,
     plateau_warning: str | None,
     modality: str,
+    interface: str,
     domain_path: Path,
 ) -> OrchestratorPlan:
     domain_orchestrator = render_domain_section(
-        domain_path, "orchestrator", **_domain_render_context(ctx, modality)
+        domain_path, "orchestrator", **_domain_render_context(ctx, modality, interface)
     )
     system_prompt = render_template(
         "orchestrator_plan_prompt.j2",
@@ -364,18 +376,20 @@ def _run_implementer(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     feedback: str | None,
     progress_path: Path,
 ) -> ImplementerResponse:
     domain_implementer = render_domain_section(
-        domain_path, "implementer", **_domain_render_context(ctx, modality)
+        domain_path, "implementer", **_domain_render_context(ctx, modality, interface)
     )
     system_prompt = render_template(
         "implementer_prompt.j2",
         template_dir=_TEMPLATE_DIR,
         reference_path=ctx.ref_name,
         modality=modality,
+        interface=interface,
         domain_implementer=domain_implementer,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
@@ -410,12 +424,13 @@ def _run_judge(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     progress_path: Path,
     objective: str,
 ) -> JudgeResponse:
     domain_judge = render_domain_section(
-        domain_path, "judge", **_domain_render_context(ctx, modality)
+        domain_path, "judge", **_domain_render_context(ctx, modality, interface)
     )
     system_prompt = render_template(
         "judge_prompt.j2",
@@ -424,6 +439,7 @@ def _run_judge(
         bench_path=ctx.judge_bench_path,
         pass_criteria=plan.pass_criteria,
         modality=modality,
+        interface=interface,
         domain_judge=domain_judge,
         retry=retry,
         runtime_notes=ctx.run_environment_view.prompt_notes,
@@ -457,6 +473,7 @@ def _run_single_agent_round(
     retry: int,
     plan: OrchestratorPlan,
     modality: str,
+    interface: str,
     domain_path: Path,
     feedback: str | None,
     progress_path: Path,
@@ -470,13 +487,14 @@ def _run_single_agent_round(
     workspace write access plus shell access for benchmarks/profiling.
     """
     domain_single_agent = render_domain_section(
-        domain_path, "single_agent", **_domain_render_context(ctx, modality)
+        domain_path, "single_agent", **_domain_render_context(ctx, modality, interface)
     )
     system_prompt = render_template(
         "single_agent_round_prompt.j2",
         template_dir=_TEMPLATE_DIR,
         reference_path=ctx.ref_name,
         modality=modality,
+        interface=interface,
         domain_single_agent=domain_single_agent,
         task=plan.task,
         pass_criteria=plan.pass_criteria,
@@ -557,6 +575,7 @@ def run_agent_loop(
     modality: str = "text_generation",
     inner_loop: str = "multi-agent",
     domain: str = DEFAULT_DOMAIN,
+    interface: str = DEFAULT_INTERFACE,
 ) -> bool:
     """Run the orchestrator-driven build loop.
 
@@ -572,13 +591,29 @@ def run_agent_loop(
       invocation per retry. Pre-round decision and standalone profiler
       passes are skipped; the prior round's profile output is fed to the
       orchestrator as ``profiler_summary``.
+
+    ``interface`` selects the artifact's evaluation contract and, with it, the
+    implementation language (the user never picks a language directly):
+
+    - ``"inprocess"`` (default): the accuracy checker imports ``main.py`` in
+      process, so the implementation must be Python; the prompts carry the
+      ``uv`` toolchain and the ``VibeServeModel`` import contract.
+    - ``"service"``: the artifact is exercised only over its network interface,
+      so the agent may implement it in any language. The in-process contract and
+      the Python/torch tooling are dropped from the prompts.
     """
     if inner_loop not in _INNER_LOOPS:
         raise ValueError(
             f"Unknown inner_loop {inner_loop!r}; choose from {', '.join(_INNER_LOOPS)}"
         )
+    if interface not in _INTERFACES:
+        raise ValueError(
+            f"Unknown interface {interface!r}; choose from {', '.join(_INTERFACES)}"
+        )
     # Resolve the domain pack once (fail fast on an unknown name/path). The
-    # per-role sections are parsed and rendered into the prompts at each call site.
+    # per-role sections are parsed and rendered into the prompts at each call
+    # site. The implementation language is not a pack — ``interface`` carries it
+    # (``inprocess`` pins Python; ``service`` leaves it to the agent).
     domain_path = resolve_domain(domain)
     run_environment = run_environment or make_run_environment_spec()
     ctx = _RunContext(
@@ -672,6 +707,7 @@ def run_agent_loop(
                 roadmap_text=roadmap_text,
                 plateau_warning=plateau_warning,
                 modality=modality,
+                interface=interface,
                 domain_path=domain_path,
             )
 
@@ -713,6 +749,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
@@ -724,6 +761,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         progress_path=progress_path,
                         objective=objective,
@@ -740,6 +778,7 @@ def run_agent_loop(
                         retry=retry,
                         plan=plan,
                         modality=modality,
+                        interface=interface,
                         domain_path=domain_path,
                         feedback=feedback,
                         progress_path=progress_path,
