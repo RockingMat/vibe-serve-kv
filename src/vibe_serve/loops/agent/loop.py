@@ -293,6 +293,25 @@ def _run_profiler(
     return summary
 
 
+def _domain_render_context(ctx: _RunContext, modality: str) -> dict[str, object]:
+    """The uniform variable set every domain ``## <role>`` section is rendered with.
+
+    One context contract for all roles: a pack author can branch (``{% if … %}``)
+    on any of these in any role section without memorizing which the loop happens
+    to pass to which role. Variables that don't apply to the current run are
+    falsy (``bench_path`` / ``accuracy_checker_path`` when nothing is attached),
+    so ``{% if bench_path %}`` works everywhere. See
+    ``templates/_domain/README.md``.
+    """
+    return {
+        "modality": modality,
+        "reference_path": ctx.ref_name,
+        "bench_path": ctx.judge_bench_path,
+        "accuracy_checker_path": ctx.judge_acc_checker_path,
+        "runtime_notes": ctx.run_environment_view.prompt_notes,
+    }
+
+
 def _run_orchestrator_plan(
     ctx: _RunContext,
     *,
@@ -307,10 +326,7 @@ def _run_orchestrator_plan(
     domain_path: Path,
 ) -> OrchestratorPlan:
     domain_orchestrator = render_domain_section(
-        domain_path,
-        "orchestrator",
-        modality=modality,
-        runtime_notes=ctx.run_environment_view.prompt_notes,
+        domain_path, "orchestrator", **_domain_render_context(ctx, modality)
     )
     system_prompt = render_template(
         "orchestrator_plan_prompt.j2",
@@ -353,11 +369,7 @@ def _run_implementer(
     progress_path: Path,
 ) -> ImplementerResponse:
     domain_implementer = render_domain_section(
-        domain_path,
-        "implementer",
-        modality=modality,
-        reference_path=ctx.ref_name,
-        runtime_notes=ctx.run_environment_view.prompt_notes,
+        domain_path, "implementer", **_domain_render_context(ctx, modality)
     )
     system_prompt = render_template(
         "implementer_prompt.j2",
@@ -403,12 +415,7 @@ def _run_judge(
     objective: str,
 ) -> JudgeResponse:
     domain_judge = render_domain_section(
-        domain_path,
-        "judge",
-        modality=modality,
-        bench_path=ctx.judge_bench_path,
-        accuracy_checker_path=ctx.judge_acc_checker_path,
-        runtime_notes=ctx.run_environment_view.prompt_notes,
+        domain_path, "judge", **_domain_render_context(ctx, modality)
     )
     system_prompt = render_template(
         "judge_prompt.j2",
@@ -463,13 +470,7 @@ def _run_single_agent_round(
     workspace write access plus shell access for benchmarks/profiling.
     """
     domain_single_agent = render_domain_section(
-        domain_path,
-        "single_agent",
-        modality=modality,
-        reference_path=ctx.ref_name,
-        bench_path=ctx.judge_bench_path,
-        accuracy_checker_path=ctx.judge_acc_checker_path,
-        runtime_notes=ctx.run_environment_view.prompt_notes,
+        domain_path, "single_agent", **_domain_render_context(ctx, modality)
     )
     system_prompt = render_template(
         "single_agent_round_prompt.j2",
