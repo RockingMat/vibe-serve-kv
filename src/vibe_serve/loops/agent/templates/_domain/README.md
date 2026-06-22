@@ -75,6 +75,7 @@ use any of these in any section without tracking which role you're in:
 | Variable | Meaning |
 |----------|---------|
 | `modality` | The `--modality` value (e.g. `text_generation`). |
+| `interface` | The `--interface` value: `inprocess` (checker imports the code; Python) or `service` (exercised over the wire; any language). Gate in-process/Python-only requirements with `{% if interface != "service" %}`. |
 | `reference_path` | Path to the reference implementation. |
 | `bench_path` | Benchmark harness dir, or falsy if no benchmark is attached. |
 | `accuracy_checker_path` | Accuracy checker dir, or falsy if not attached. |
