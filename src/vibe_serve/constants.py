@@ -33,10 +33,17 @@ class ComputeBackend(StrEnum):
       nsys) so ``vibeserve-curriculum --backend metal`` is not a
       supported workflow yet; the simple loop is the intended entry
       point.
+    - ``CPU`` has no GPU at all: device selection and the hardware
+      monitor are no-ops and only local execution is supported (no
+      Docker/Modal GPU passthrough). It targets CPU-bound workloads
+      (KV stores, networking servers) where the win is in the code, not
+      the kernels; like ``METAL`` the curriculum is not wired up, so the
+      simple loop is the intended entry point.
     """
 
     CUDA = "cuda"
     METAL = "metal"
+    CPU = "cpu"
 
 
 DEFAULT_COMPUTE_BACKEND = ComputeBackend.CUDA
