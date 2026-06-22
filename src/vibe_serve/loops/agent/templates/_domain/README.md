@@ -69,19 +69,19 @@ Rules:
 
 Section bodies are rendered with Jinja, so you can branch on the run's context.
 Most domains never need this — reach for it only when a gate depends on what's
-attached to the run. The useful variables:
+attached to the run. **Every role section gets the same variables**, so you can
+use any of these in any section without tracking which role you're in:
 
 | Variable | Meaning |
 |----------|---------|
 | `modality` | The `--modality` value (e.g. `text_generation`). |
 | `reference_path` | Path to the reference implementation. |
-| `bench_path` | Benchmark harness dir, if a benchmark is attached (else falsy). |
-| `accuracy_checker_path` | Accuracy checker dir, if attached (else falsy). |
+| `bench_path` | Benchmark harness dir, or falsy if no benchmark is attached. |
+| `accuracy_checker_path` | Accuracy checker dir, or falsy if not attached. |
 | `runtime_notes` | Runtime-environment notes for the round. |
 
-Not every variable is passed to every role — `bench_path` / `accuracy_checker_path`
-are judge-side, `reference_path` is builder-side, and the `orchestrator` role gets
-`modality` / `runtime_notes`. Guard with `is defined` when in doubt.
+These are always defined (falsy when not applicable), so a plain `{% if bench_path %}`
+is enough — no `is defined` guard needed.
 
 Example (inside a `## judge` section):
 
@@ -89,7 +89,7 @@ Example (inside a `## judge` section):
 ## Correctness gates
 
 1. `pytest` passes.
-{% if bench_path is defined and bench_path %}
+{% if bench_path %}
 2. Run `{{ bench_path }}/benchmark.py` and confirm it succeeds.
 {% endif %}
 ```

@@ -110,9 +110,11 @@ def _load_sections(domain_file: Path) -> dict[str, str]:
 def render_domain_section(domain_file: Path, role: str, **context: object) -> str:
     """Render a domain file's ``## <role>`` section, or ``""`` if absent/empty.
 
-    The section is rendered through Jinja with ``context`` (e.g. ``modality``,
-    ``bench_path``, ``accuracy_checker_path``) so domain authors can branch on
-    the run. ``single_agent`` falls back to ``implementer`` + ``judge`` when the
+    The section is rendered through Jinja with ``context`` — the same uniform
+    variable set for every role (``modality``, ``reference_path``, ``bench_path``,
+    ``accuracy_checker_path``, ``runtime_notes``; built by ``_domain_render_context``
+    in ``loop.py``) so authors can branch on the run from any section.
+    ``single_agent`` falls back to ``implementer`` + ``judge`` when the
     file has no explicit ``## single_agent`` section. Leading and trailing blank
     lines are stripped — the base template owns the spacing around the
     ``{{ domain_<role> }}`` injection point.

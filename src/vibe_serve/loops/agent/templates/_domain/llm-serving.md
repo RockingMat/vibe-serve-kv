@@ -62,10 +62,10 @@ You are reviewing an **ML inference server** implementation.
 In addition to the orchestrator's criteria, the following must all hold for a **pass** verdict:
 
 1. **Unit tests** — run `uv run pytest -v`. All tests must pass.
-{% if bench_path is defined and bench_path %}
+{% if bench_path %}
 2. **Benchmark sanity** — start the server, wait for `/health`, run the benchmark tool at `{{ bench_path }}/benchmark.py` with 2 requests, confirm at least one request succeeds. Discover flags via `--help`; do NOT guess. Kill the server after. If /health never returns 200, read `/tmp/server.log` for the error.
 {% endif %}
-{% if accuracy_checker_path is defined and accuracy_checker_path %}
+{% if accuracy_checker_path %}
 3. **Accuracy checker — required to pass**. Start the server, wait for `/health`, then run `{{ accuracy_checker_path }}/checker.py` against it with default flags (discover flags via `--help`; do NOT guess). The checker enforces both a schema-valid rate (≥ 0.95) and a sentinel-echo rate (≥ 0.90) — the sentinel is a random per-request token the prompt tells the server to include in its output, so a prompt-ignoring shortcut (schema-only synthesizer, deterministic template, prebuilt-JSON cache) will fail the sentinel gate even if it passes schema validation. If the accuracy checker exits non-zero, this round is a **fail** — report both the schema and sentinel rates in feedback so the implementer can diagnose which gate tripped. Kill the server after. This is a first-class gate; do NOT wave it off because the benchmark sanity or pytest already passed.
 
 Additionally, for every issue the checker flagged as "sentinel-missing", treat it as a **correctness defect**: the server is producing output that ignores the prompt's explicit instructions. That is a bug in the implementation, not a benchmark quirk — and a strong signal that a reward-hacking shortcut has been introduced (e.g. a JSON synthesizer that bypasses the model, a fixed-template response, or a reuse of previously generated output). Require the implementer to remove the shortcut and actually generate tokens with the model.
@@ -122,10 +122,10 @@ You are a senior **ML serving engineer** owning this combined round.
 The framework's always-on gates (pytest, benchmark sanity, accuracy checker) apply on top of the orchestrator's criteria — your verdict must reflect all of them:
 
 1. `uv run pytest -v` passes.
-{% if bench_path is defined and bench_path %}
+{% if bench_path %}
 2. **Benchmark sanity** — start the server, wait for `/health`, run `{{ bench_path }}/benchmark.py` with 2 requests, confirm at least one succeeds. Discover flags with `--help`. Kill the server when done.
 {% endif %}
-{% if accuracy_checker_path is defined and accuracy_checker_path %}
+{% if accuracy_checker_path %}
 3. **Accuracy checker** — start the server, wait for `/health`, then run `{{ accuracy_checker_path }}/checker.py` with default flags. Both the schema-valid rate (≥ 0.95) AND the sentinel-echo rate (≥ 0.90) must hold; if the checker exits non-zero this round is **fail**. Kill the server after.
 {% endif %}
 
