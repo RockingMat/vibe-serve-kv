@@ -52,9 +52,11 @@ def get(
 def _register_defaults() -> None:
     from vibe_serve.backends.cuda import CudaBackend
     from vibe_serve.backends.metal import MetalBackend
+    from vibe_serve.backends.cpu import CpuBackend
 
     register(ComputeBackend.CUDA, CudaBackend)
     register(ComputeBackend.METAL, MetalBackend)
+    register(ComputeBackend.CPU, CpuBackend)
 
 
 _register_defaults()
